@@ -218,3 +218,5 @@ ragflow.egg-info/
 rag/svr/cks_test.json
 rag/svr/get_file.txt
 *240509.xlsx
+
+CLAUDE.local.md
