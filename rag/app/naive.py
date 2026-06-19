@@ -13,10 +13,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-
+import json
 import logging
 import re
 import os
+from datetime import datetime
 from functools import reduce
 from io import BytesIO
 from timeit import default_timer as timer
@@ -448,6 +449,9 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))
     }
     doc["title_sm_tks"] = rag_tokenizer.fine_grained_tokenize(doc["title_tks"])
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_doc.json", "w", encoding="utf-8") as f:
+        json.dump(doc, f, ensure_ascii=False, indent=4)
     res = []
     pdf_parser = None
     section_images = None
@@ -646,8 +650,14 @@ def chunk(filename, binary=None, from_page=0, to_page=100000,
         if kwargs.get("section_only", False):
             chunks.extend(embed_res)
             return chunks
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_chunks.json", "w", encoding="utf-8") as f:
+            json.dump(chunks, f, ensure_ascii=False, indent=4)
 
         res.extend(tokenize_chunks(chunks, doc, is_english, pdf_parser))
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_res.json", "w", encoding="utf-8") as f:
+        json.dump(res, f, ensure_ascii=False, indent=4)
 
     logging.info("naive_merge({}): {}".format(filename, timer() - st))
     if embed_res:

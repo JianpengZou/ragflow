@@ -73,7 +73,7 @@ const errorHandler = (error: {
 
 const request: RequestMethod = extend({
   errorHandler,
-  timeout: 300000,
+  timeout: 30000000,
   getResponse: true,
 });
 

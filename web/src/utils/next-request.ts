@@ -73,7 +73,7 @@ const errorHandler = (error: {
 
 const request = axios.create({
   //   errorHandler,
-  timeout: 300000,
+  timeout: 30000000,
   //   getResponse: true,
 });
 

@@ -21,6 +21,8 @@ import time
 import os
 
 import copy
+from datetime import datetime
+
 from elasticsearch import Elasticsearch, NotFoundError
 from elasticsearch_dsl import UpdateByQuery, Q, Search, Index
 from elastic_transport import ConnectionTimeout
@@ -246,6 +248,10 @@ class ESConnection(DocStoreConnection):
         q = s.to_dict()
         logger.debug(f"ESConnection.search {str(indexNames)} query: " + json.dumps(q))
 
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_search_body.json", "w", encoding="utf-8") as f:
+            json.dump(q, f, ensure_ascii=False, indent=4)
+
         for i in range(ATTEMPT_TIME):
             try:
                 #print(json.dumps(q, ensure_ascii=False))
@@ -255,6 +261,9 @@ class ESConnection(DocStoreConnection):
                                      # search_type="dfs_query_then_fetch",
                                      track_total_hits=True,
                                      _source=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_es_res.json", "w", encoding="utf-8") as f:
+                    json.dump(res.raw, f, ensure_ascii=False, indent=4)
                 if str(res.get("timed_out", "")).lower() == "true":
                     raise Exception("Es Timeout.")
                 logger.debug(f"ESConnection.search {str(indexNames)} res: " + str(res))

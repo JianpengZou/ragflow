@@ -232,7 +232,7 @@ def completion(tenant_id, agent_id, session_id=None, **kwargs):
     API4ConversationService.append_message(conv["id"], conv)
 
 
-def completionOpenAI(tenant_id, agent_id, question, session_id=None, stream=True, **kwargs):
+def completionOpenAI(tenant_id, agent_id, question, session_id=None, stream=False, **kwargs):
     tiktokenenc = tiktoken.get_encoding("cl100k_base")
     prompt_tokens = len(tiktokenenc.encode(str(question)))
     user_id = kwargs.get("user_id", "")

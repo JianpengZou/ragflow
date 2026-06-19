@@ -19,11 +19,15 @@ from io import BytesIO
 import pandas as pd
 from openpyxl import Workbook, load_workbook
 
+import json
+
+from deepdoc.parser.DD_methods_new import extract_sheet_shori, extract_sheet_jikkoseigyo, extract_sheet_rojikku, \
+    extract_sheet_sql_teigi
 from rag.nlp import find_codec
 
 # copied from `/openpyxl/cell/cell.py`
 ILLEGAL_CHARACTERS_RE = re.compile(r"[\000-\010]|[\013-\014]|[\016-\037]")
-
+IGNORE_SHEETS = ["表紙", "変更履歴"]
 
 class RAGFlowExcelParser:
     @staticmethod
@@ -168,24 +172,47 @@ class RAGFlowExcelParser:
         wb = RAGFlowExcelParser._load_excel_to_workbook(file_like_object)
 
         res = []
-        for sheetname in wb.sheetnames:
-            ws = wb[sheetname]
-            rows = list(ws.rows)
-            if not rows:
-                continue
-            ti = list(rows[0])
-            for r in list(rows[1:]):
-                fields = []
-                for i, c in enumerate(r):
-                    if not c.value:
-                        continue
-                    t = str(ti[i].value) if i < len(ti) else ""
-                    t += ("：" if t else "") + str(c.value)
-                    fields.append(t)
-                line = "; ".join(fields)
-                if sheetname.lower().find("sheet") < 0:
-                    line += " ——" + sheetname
-                res.append(line)
+        for sheet_name in wb.sheetnames:
+            if sheet_name not in IGNORE_SHEETS:
+                ws = wb[sheet_name]
+                rows = list(ws.rows)
+                if not rows:
+                    continue
+                match = re.match(r"^([^\(（]+)[\(（]?.*[\)）]?$", sheet_name.strip())
+                prefix = match.group(1).strip() if match else sheet_name.strip()
+                lines = []
+                if "処理" in prefix:
+                    lines = extract_sheet_shori(ws, sheet_name)
+                elif "実行制御" in prefix:
+                    lines = extract_sheet_jikkoseigyo(ws, sheet_name)
+                elif "ロジック" in prefix:
+                    lines = extract_sheet_rojikku(ws, sheet_name)
+                elif "SQL定義" in prefix:
+                    lines = extract_sheet_sql_teigi(ws, sheet_name)
+                elif "ファンクション" in prefix:
+                    pass
+                    # todo
+                elif "補足" in prefix:
+                    pass
+                    # todo
+                else:
+                    ti = list(rows[0])
+                    for r in list(rows[1:]):
+                        fields = []
+                        for i, c in enumerate(r):
+                            if not c.value:
+                                continue
+                            t = str(ti[i].value) if i < len(ti) else ""
+                            t += ("：" if t else "") + str(c.value)
+                            fields.append(t)
+                        if not fields:
+                            continue
+                        line = "; ".join(fields)
+                        line += " ——" + sheet_name
+                        lines.append(line)
+                res.extend(lines)
+        with open("C:/gitCodes/ragflow/test_output/extracted_data.json", "w", encoding="utf-8") as f:
+            json.dump(res, f, ensure_ascii=False, indent=4)
         return res
 
     @staticmethod
@@ -205,5 +232,10 @@ class RAGFlowExcelParser:
 
 
 if __name__ == "__main__":
-    psr = RAGFlowExcelParser()
-    psr(sys.argv[1])
+    # psr = RAGFlowExcelParser()
+    # psr(sys.argv[1])
+
+    with open("C:/gitCodes/ragflow/processed_file.xlsx", "rb") as f:
+        file_bin = f.read()
+    rn = RAGFlowExcelParser.row_number("processed_file.xlsx", file_bin)
+    print(rn)

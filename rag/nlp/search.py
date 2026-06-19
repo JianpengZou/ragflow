@@ -20,6 +20,7 @@ import math
 import os
 from collections import OrderedDict
 from dataclasses import dataclass
+from datetime import datetime
 
 from rag.prompts.generator import relevant_chunks_with_toc
 from rag.settings import TAG_FLD, PAGERANK_FLD
@@ -88,6 +89,9 @@ class Dealer:
                        "doc_id", "page_num_int", "top_int", "create_timestamp_flt", "knowledge_graph_kwd",
                        "question_kwd", "question_tks", "doc_type_kwd",
                        "available_int", "content_with_weight", PAGERANK_FLD, TAG_FLD])
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_dealer_src.json", "w", encoding="utf-8") as f:
+            json.dump(src, f, ensure_ascii=False, indent=4)
         kwds = set([])
 
         qst = req.get("question", "")
@@ -147,6 +151,10 @@ class Dealer:
                     if kk in kwds:
                         continue
                     kwds.add(kk)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_dealer_res.json", "w", encoding="utf-8") as f:
+            json.dump(src, f, ensure_ascii=False, indent=4)
 
         logging.debug(f"TOTAL: {total}")
         ids = self.dataStore.getChunkIds(res)
@@ -366,12 +374,29 @@ class Dealer:
                "similarity": similarity_threshold,
                "available_int": 1}
 
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_retrieval_req.json", "w", encoding="utf-8") as f:
+            json.dump(req, f, ensure_ascii=False, indent=4)
+
 
         if isinstance(tenant_ids, str):
             tenant_ids = tenant_ids.split(",")
 
         sres = self.search(req, [index_name(tid) for tid in tenant_ids],
                            kb_ids, embd_mdl, highlight, rank_feature=rank_feature)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_es_search_result.json", "w", encoding="utf-8") as f:
+            json.dump({
+                "total": sres.total,
+                "ids": sres.ids,
+                "query_vector": sres.query_vector,
+                "field": sres.field,
+                "highlight": sres.highlight,
+                "aggregation": sres.aggregation,
+                "keywords": sres.keywords,
+                "group_docs": sres.group_docs
+            }, f, ensure_ascii=False, indent=4)
 
         if rerank_mdl and sres.total > 0:
             sim, tsim, vsim = self.rerank_by_model(rerank_mdl,

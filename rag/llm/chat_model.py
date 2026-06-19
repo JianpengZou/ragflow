@@ -22,6 +22,7 @@ import re
 import time
 from abc import ABC
 from copy import deepcopy
+from datetime import datetime
 from typing import Any, Protocol
 from urllib.parse import urljoin
 
@@ -160,7 +161,15 @@ class Base(ABC):
         if self.model_name.lower().find("qwen3") >= 0:
             kwargs["extra_body"] = {"enable_thinking": False}
 
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_chatgpt_messages.json", "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=4)
+
         response = self.client.chat.completions.create(model=self.model_name, messages=history, **gen_conf, **kwargs)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_chatgpt_response.json", "w", encoding="utf-8") as f:
+            json.dump([choice.message.content for choice in response.choices], f, ensure_ascii=False, indent=4)
 
         if not response.choices or not response.choices[0].message or not response.choices[0].message.content:
             return "", 0

@@ -369,6 +369,7 @@ def chunk(filename, binary=None, from_page=0, to_page=10000000000, lang="Chinese
         clmns_map = [(py_clmns[i].lower() + fieds_map[clmn_tys[i]], str(clmns[i]).replace("_", " ")) for i in range(len(clmns))]
 
         eng = lang.lower() == "english"  # is_english(txts)
+        ja = lang.lower() == "japanese"
         for ii, row in df.iterrows():
             d = {"docnm_kwd": filename, "title_tks": rag_tokenizer.tokenize(re.sub(r"\.[a-zA-Z]+$", "", filename))}
             row_txt = []

@@ -14,6 +14,7 @@
 #  limitations under the License.
 #
 import binascii
+import json
 import logging
 import re
 import time
@@ -466,6 +467,9 @@ def chat(dialog, messages, stream=True, **kwargs):
                     rerank_mdl=rerank_mdl,
                     rank_feature=label_question(" ".join(questions), kbs),
                 )
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_kbinfos_reranked.json", "w", encoding="utf-8") as f:
+                    json.dump(kbinfos, f, ensure_ascii=False, indent=4)
                 if prompt_config.get("toc_enhance"):
                     cks = retriever.retrieval_by_toc(" ".join(questions), kbinfos["chunks"], tenant_ids, chat_mdl, dialog.top_n)
                     if cks:
@@ -482,6 +486,9 @@ def chat(dialog, messages, stream=True, **kwargs):
                     kbinfos["chunks"].insert(0, ck)
 
             knowledges = kb_prompt(kbinfos, max_tokens)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_knowledges.json", "w", encoding="utf-8") as f:
+                json.dump(knowledges, f, ensure_ascii=False, indent=4)
 
     logging.debug("{}->{}".format(" ".join(questions), "\n->".join(knowledges)))
 
@@ -502,6 +509,9 @@ def chat(dialog, messages, stream=True, **kwargs):
     msg.extend([{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in messages if m["role"] != "system"])
     used_token_count, msg = message_fit_in(msg, int(max_tokens * 0.95))
     assert len(msg) >= 2, f"message_fit_in has bug: {msg}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_fitted_in_message.json", "w", encoding="utf-8") as f:
+        json.dump(kbinfos, f, ensure_ascii=False, indent=4)
     prompt = msg[0]["content"]
 
     if "max_tokens" in gen_conf:
@@ -591,6 +601,7 @@ def chat(dialog, messages, stream=True, **kwargs):
             input={"prompt": prompt, "prompt4citation": prompt4citation, "messages": msg}
         )
 
+    stream = False
     if stream:
         last_ans = ""
         answer = ""
@@ -611,7 +622,13 @@ def chat(dialog, messages, stream=True, **kwargs):
         answer = chat_mdl.chat(prompt + prompt4citation, msg[1:], gen_conf)
         user_content = msg[-1].get("content", "[content not available]")
         logging.debug("User: {}|Assistant: {}".format(user_content, answer))
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_chatgpt_answer.json", "w", encoding="utf-8") as f:
+            json.dump(answer, f, ensure_ascii=False, indent=4)
         res = decorate_answer(answer)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_chatgpt_answer_decorated.json", "w", encoding="utf-8") as f:
+            json.dump(res, f, ensure_ascii=False, indent=4)
         res["audio_binary"] = tts(tts_mdl, answer)
         yield res
 

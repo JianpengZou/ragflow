@@ -195,3 +195,26 @@ ragflow_cli.egg-info
 
 # Default backup dir
 backup
+
+# Local service config (contains secrets); use service_conf.yaml.template instead
+docker/service_conf.yaml
+
+# --- Local working artifacts / large data: keep out of version control ---
+*.whl
+*.bak
+ragflow.egg-info/
+/test_output/
+/test_input/
+/samples/
+/mecab-ipadic/
+/processed_file.*
+/saved_vector.json
+/retrieval_test_result.json
+/running_test.*
+/search_test.py
+/tmp_check.py
+/cks_test.json
+/prompt_config.json
+rag/svr/cks_test.json
+rag/svr/get_file.txt
+*240509.xlsx

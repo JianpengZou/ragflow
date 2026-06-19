@@ -213,9 +213,12 @@ services:
       - kibana
     image: kibana:${STACK_VERSION}
     ports:
-      - ${KIBANA_PORT-5601}:5601
+      - ${KIBANA_PORT}:5601
     env_file: .env
     environment:
+      - I18N_LOCALE=zh-CN
+      - ELASTICSEARCH_HOSTS=http://ragflow-es-01:9200
+      - ELASTICSEARCH_SERVICEACCOUNTTOKEN=AAEAAWVsYXN0aWMva2liYW5hL215dG9rZW46M0dWZVRNSnBTSFNrdUdhME05RlNNQQ
       - TZ=${TIMEZONE}
     volumes:
       - kibana_data:/usr/share/kibana/data

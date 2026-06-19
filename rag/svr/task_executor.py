@@ -62,7 +62,8 @@ from rag.app import laws, paper, presentation, manual, qa, table, book, resume, 
     email, tag
 from rag.nlp import search, rag_tokenizer, add_positions
 from rag.raptor import RecursiveAbstractiveProcessing4TreeOrganizedRetrieval as Raptor
-from rag.settings import DOC_MAXIMUM_SIZE, DOC_BULK_SIZE, EMBEDDING_BATCH_SIZE, SVR_CONSUMER_GROUP_NAME, get_svr_queue_name, get_svr_queue_names, print_rag_settings, TAG_FLD, PAGERANK_FLD
+from rag.settings import DOC_MAXIMUM_SIZE, DOC_BULK_SIZE, EMBEDDING_BATCH_SIZE, SVR_CONSUMER_GROUP_NAME, \
+    get_svr_queue_name, get_svr_queue_names, print_rag_settings, TAG_FLD, PAGERANK_FLD
 from rag.utils import num_tokens_from_string, truncate
 from rag.utils.redis_conn import REDIS_CONN, RedisDistributedLock
 from rag.utils.storage_factory import STORAGE_IMPL
@@ -137,19 +138,21 @@ def start_tracemalloc_and_snapshot(signum, frame):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     snapshot_file = f"snapshot_{timestamp}.trace"
-    snapshot_file = os.path.abspath(os.path.join(get_project_base_directory(), "logs", f"{os.getpid()}_snapshot_{timestamp}.trace"))
+    snapshot_file = os.path.abspath(
+        os.path.join(get_project_base_directory(), "logs", f"{os.getpid()}_snapshot_{timestamp}.trace"))
 
     snapshot = tracemalloc.take_snapshot()
     snapshot.dump(snapshot_file)
     current, peak = tracemalloc.get_traced_memory()
     if sys.platform == "win32":
-        import  psutil
+        import psutil
         process = psutil.Process()
         max_rss = process.memory_info().rss / 1024
     else:
         import resource
         max_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     logging.info(f"taken snapshot {snapshot_file}. max RSS={max_rss / 1000:.2f} MB, current memory usage: {current / 10**6:.2f} MB, Peak memory usage: {peak / 10**6:.2f} MB")
+
 
 
 # SIGUSR2 handler: stop tracemalloc
@@ -159,6 +162,7 @@ def stop_tracemalloc(signum, frame):
         tracemalloc.stop()
     else:
         logging.info("tracemalloc not running")
+
 
 
 class TaskCanceledException(Exception):
@@ -256,7 +260,7 @@ async def get_storage_binary(bucket, name):
     return await trio.to_thread.run_sync(lambda: STORAGE_IMPL.get(bucket, name))
 
 
-@timeout(60*80, 1)
+@timeout(60 * 80, 1)
 async def build_chunks(task, progress_callback):
     if task["size"] > DOC_MAXIMUM_SIZE:
         set_progress(task["id"], prog=-1, msg="File size exceeds( <= %dMb )" %
@@ -284,9 +288,11 @@ async def build_chunks(task, progress_callback):
 
     try:
         async with chunk_limiter:
-            cks = await trio.to_thread.run_sync(lambda: chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
-                                to_page=task["to_page"], lang=task["language"], callback=progress_callback,
-                                kb_id=task["kb_id"], parser_config=task["parser_config"], tenant_id=task["tenant_id"]))
+            cks = await trio.to_thread.run_sync(
+                lambda: chunker.chunk(task["name"], binary=binary, from_page=task["from_page"],
+                                      to_page=task["to_page"], lang=task["language"], callback=progress_callback,
+                                      kb_id=task["kb_id"], parser_config=task["parser_config"],
+                                      tenant_id=task["tenant_id"]))
         logging.info("Chunking({}) {}/{} done".format(timer() - st, task["location"], task["name"]))
     except TaskCanceledException:
         raise
@@ -303,13 +309,17 @@ async def build_chunks(task, progress_callback):
     if task["pagerank"]:
         doc[PAGERANK_FLD] = int(task["pagerank"])
     st = timer()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_cks_test.json", "w", encoding="utf-8") as f:
+        json.dump(cks, f, ensure_ascii=False, indent=2)
 
     @timeout(60)
     async def upload_to_minio(document, chunk):
         try:
             d = copy.deepcopy(document)
             d.update(chunk)
-            d["id"] = xxhash.xxh64((chunk["content_with_weight"] + str(d["doc_id"])).encode("utf-8", "surrogatepass")).hexdigest()
+            d["id"] = xxhash.xxh64(
+                (chunk["content_with_weight"] + str(d["doc_id"])).encode("utf-8", "surrogatepass")).hexdigest()
             d["create_time"] = str(datetime.now()).replace("T", " ")[:19]
             d["create_timestamp_flt"] = datetime.now().timestamp()
             if not d.get("image"):
@@ -328,6 +338,10 @@ async def build_chunks(task, progress_callback):
         for ck in cks:
             nursery.start_soon(upload_to_minio, doc, ck)
 
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_docs.json", "w", encoding="utf-8") as f:
+        json.dump(docs, f, ensure_ascii=False, indent=4)
+
     el = timer() - st
     logging.info("MINIO PUT({}) cost {:.3f} s".format(task["name"], el))
 
@@ -340,12 +354,14 @@ async def build_chunks(task, progress_callback):
             cached = get_llm_cache(chat_mdl.llm_name, d["content_with_weight"], "keywords", {"topn": topn})
             if not cached:
                 async with chat_limiter:
-                    cached = await trio.to_thread.run_sync(lambda: keyword_extraction(chat_mdl, d["content_with_weight"], topn))
+                    cached = await trio.to_thread.run_sync(
+                        lambda: keyword_extraction(chat_mdl, d["content_with_weight"], topn))
                 set_llm_cache(chat_mdl.llm_name, d["content_with_weight"], cached, "keywords", {"topn": topn})
             if cached:
                 d["important_kwd"] = cached.split(",")
                 d["important_tks"] = rag_tokenizer.tokenize(" ".join(d["important_kwd"]))
             return
+
         async with trio.open_nursery() as nursery:
             for d in docs:
                 nursery.start_soon(doc_keyword_extraction, chat_mdl, d, task["parser_config"]["auto_keywords"])
@@ -360,11 +376,13 @@ async def build_chunks(task, progress_callback):
             cached = get_llm_cache(chat_mdl.llm_name, d["content_with_weight"], "question", {"topn": topn})
             if not cached:
                 async with chat_limiter:
-                    cached = await trio.to_thread.run_sync(lambda: question_proposal(chat_mdl, d["content_with_weight"], topn))
+                    cached = await trio.to_thread.run_sync(
+                        lambda: question_proposal(chat_mdl, d["content_with_weight"], topn))
                 set_llm_cache(chat_mdl.llm_name, d["content_with_weight"], cached, "question", {"topn": topn})
             if cached:
                 d["question_kwd"] = cached.split("\n")
                 d["question_tks"] = rag_tokenizer.tokenize("\n".join(d["question_kwd"]))
+
         async with trio.open_nursery() as nursery:
             for d in docs:
                 nursery.start_soon(doc_question_proposal, chat_mdl, d, task["parser_config"]["auto_questions"])
@@ -401,16 +419,19 @@ async def build_chunks(task, progress_callback):
         async def doc_content_tagging(chat_mdl, d, topn_tags):
             cached = get_llm_cache(chat_mdl.llm_name, d["content_with_weight"], all_tags, {"topn": topn_tags})
             if not cached:
-                picked_examples = random.choices(examples, k=2) if len(examples)>2 else examples
+                picked_examples = random.choices(examples, k=2) if len(examples) > 2 else examples
                 if not picked_examples:
                     picked_examples.append({"content": "This is an example", TAG_FLD: {'example': 1}})
                 async with chat_limiter:
-                    cached = await trio.to_thread.run_sync(lambda: content_tagging(chat_mdl, d["content_with_weight"], all_tags, picked_examples, topn=topn_tags))
+                    cached = await trio.to_thread.run_sync(
+                        lambda: content_tagging(chat_mdl, d["content_with_weight"], all_tags, picked_examples,
+                                                topn=topn_tags))
                 if cached:
                     cached = json.dumps(cached)
             if cached:
                 set_llm_cache(chat_mdl.llm_name, d["content_with_weight"], cached, all_tags, {"topn": topn_tags})
                 d[TAG_FLD] = json.loads(cached)
+
         async with trio.open_nursery() as nursery:
             for d in docs_to_tag:
                 nursery.start_soon(doc_content_tagging, chat_mdl, d, topn_tags)
@@ -480,7 +501,7 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
     @timeout(60)
     def batch_encode(txts):
         nonlocal mdl
-        return mdl.encode([truncate(c, mdl.max_length-10) for c in txts])
+        return mdl.encode([truncate(c, mdl.max_length - 10) for c in txts])
 
     cnts_ = np.array([])
     for i in range(0, len(cnts), EMBEDDING_BATCH_SIZE):
@@ -493,7 +514,7 @@ async def embedding(docs, mdl, parser_config=None, callback=None):
         tk_count += c
         callback(prog=0.7 + 0.2 * (i + 1) / len(cnts), msg="")
     cnts = cnts_
-    filename_embd_weight = parser_config.get("filename_embd_weight", 0.1) # due to the db support none value
+    filename_embd_weight = parser_config.get("filename_embd_weight", 0.1)  # due to the db support none value
     if not filename_embd_weight:
         filename_embd_weight = 0.1
     title_w = float(filename_embd_weight)
@@ -919,6 +940,9 @@ async def do_handle_task(task):
             token_count = 0
             raise
         progress_message = "Embedding chunks ({:.2f}s)".format(timer() - start_ts)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+        with open(f"C:/gitCodes/ragflow/test_output/{timestamp}_docs_embedded.json", "w", encoding="utf-8") as f:
+            json.dump(chunks, f, ensure_ascii=False, indent=4)
         logging.info(progress_message)
         progress_callback(msg=progress_message)
         if task["parser_id"].lower() == "naive" and task["parser_config"].get("toc_extraction", False):
@@ -1078,6 +1102,7 @@ async def main():
             await task_limiter.acquire()
             nursery.start_soon(task_manager)
     logging.error("BUG!!! You should not reach here!!!")
+
 
 if __name__ == "__main__":
     faulthandler.enable()
